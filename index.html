@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Connect Four - Online Multiplayer</title>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 * {
 box-sizing: border-box;
@@ -329,10 +329,13 @@ oppColor = 'Yellow';
 peer = new Peer();
 peer.on('open', (id) => {
 roomCodeEl.textContent = id;
+showScreen(roomScreen);
 });
 peer.on('connection', handleIncomingConnection);
-peer.on('error', (err) => console.error('Peer error:', err));
-showScreen(roomScreen);
+peer.on('error', (err) => {
+console.error('Peer error:', err);
+alert('Connection error: ' + err.type);
+});
 }
 
 function handleIncomingConnection(conn) {
@@ -342,6 +345,7 @@ opponentConn.send({ type: 'init', name: ownName });
 connected = true;
 updatePlayers();
 updateStatus();
+initBoard();
 showScreen(gameScreen);
 });
 conn.on('data', handleData);
@@ -357,8 +361,7 @@ ownPlayer = 2;
 ownColor = 'Yellow';
 oppColor = 'Red';
 peer = new Peer();
-opponentConn = peer.connect(roomId);
-if (!opponentConn) return alert('Connection failed');
+opponentConn = peer.connect(roomId, { reliable: true });
 opponentConn.on('open', () => {
 opponentConn.send({ type: 'join', name: ownName });
 showScreen(connectingScreen);
@@ -366,6 +369,7 @@ showScreen(connectingScreen);
 opponentConn.on('data', handleData);
 opponentConn.on('close', handleDisconnect);
 opponentConn.on('error', (err) => {
+console.error(err);
 alert('Connection failed: ' + err.type);
 showScreen(startScreen);
 });
@@ -382,6 +386,7 @@ opponentName = data.name;
 updatePlayers();
 connected = true;
 updateStatus();
+initBoard();
 showScreen(gameScreen);
 return;
 }
@@ -399,11 +404,7 @@ const row = getNextOpenRow(col);
 if (row === -1) return;
 const oppPlayer = 3 - ownPlayer;
 board[row][col] = oppPlayer;
-const cellIndex = row * COLS + col;
-const cell = boardEl.children[cellIndex];
-const disc = document.createElement('div');
-disc.classList.add('disc', oppPlayer === 1 ? 'red' : 'yellow');
-cell.appendChild(disc);
+dropDisc(row, col, oppPlayer);
 if (checkWin(row, col, oppPlayer)) {
 statusEl.textContent = `${opponentName || 'Opponent'} Wins! 🎉`;
 gameOver = true;
@@ -425,10 +426,22 @@ for (let col = 0; col < COLS; col++) {
 const cell = document.createElement('div');
 cell.classList.add('cell');
 cell.dataset.col = col;
+if (board[row][col]) {
+dropDisc(row, col, board[row][col], false); // no animation for sync
+}
 cell.addEventListener('click', handleClick);
 boardEl.appendChild(cell);
 }
 }
+}
+
+function dropDisc(row, col, player, animate = true) {
+const cellIndex = row * COLS + col;
+const cell = boardEl.children[cellIndex];
+const disc = document.createElement('div');
+disc.classList.add('disc', player === 1 ? 'red' : 'yellow');
+if (!animate) disc.style.animation = 'none';
+cell.appendChild(disc);
 }
 
 function handleClick(e) {
@@ -437,11 +450,7 @@ const col = parseInt(e.target.dataset.col);
 const row = getNextOpenRow(col);
 if (row === -1) return;
 board[row][col] = ownPlayer;
-const cellIndex = row * COLS + col;
-const cell = boardEl.children[cellIndex];
-const disc = document.createElement('div');
-disc.classList.add('disc', ownPlayer === 1 ? 'red' : 'yellow');
-cell.appendChild(disc);
+dropDisc(row, col, ownPlayer);
 if (checkWin(row, col, ownPlayer)) {
 statusEl.textContent = `${ownName} Wins! 🎉`;
 gameOver = true;
@@ -465,9 +474,7 @@ return -1;
 }
 
 function checkWin(row, col, player) {
-const directions = [
-[0, 1], [1, 0], [1, 1], [1, -1]
-];
+const directions = [[0,1],[1,0],[1,1],[1,-1]];
 for (let [dr, dc] of directions) {
 let count = 1;
 count += countInDirection(row, col, dr, dc, player);
@@ -532,20 +539,17 @@ opponentConn.send({ type: 'reset' });
 resetGame();
 });
 
-// Copy room code
 document.getElementById('copy-btn').addEventListener('click', async () => {
 try {
 await navigator.clipboard.writeText(roomCodeEl.textContent);
-alert('Room code copied! Share it with your friend.');
+alert('Room code copied!');
 } catch {
 prompt('Copy this code:', roomCodeEl.textContent);
 }
 });
 
-// Init
 nameInput.focus();
 updatePlayers();
-initBoard(); // Pre-init for game screen
 </script>
 </body>
 </html>
