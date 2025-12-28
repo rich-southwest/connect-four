@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connect Four - Online Multiplayer</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+* {
+box-sizing: border-box;
+}
+
+body {
+display: flex;
+justify-content: center;
+align-items: center;
+min-height: 100vh;
+margin: 0;
+background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+background-size: 400% 400%;
+animation: gradient 15s ease infinite;
+font-family: 'Arial Black', sans-serif;
+color: white;
+overflow: hidden;
+}
+
+@keyframes gradient {
+0% { background-position: 0% 50%; }
+50% { background-position: 100% 50%; }
+100% { background-position: 0% 50%; }
+}
+
+.screen {
+background: rgba(0, 0, 0, 0.7);
+backdrop-filter: blur(10px);
+padding: 40px;
+border-radius: 20px;
+box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+text-align: center;
+max-width: 400px;
+width: 90vw;
+}
+
+h1, h2 {
+text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+margin-bottom: 20px;
+}
+
+input {
+width: 100%;
+padding: 15px;
+margin: 10px 0;
+font-size: 18px;
+border: none;
+border-radius: 10px;
+background: rgba(255, 255, 255, 0.2);
+color: white;
+text-align: center;
+}
+
+input::placeholder {
+color: rgba(255, 255, 255, 0.7);
+}
+
+button {
+width: 100%;
+padding: 15px;
+margin: 10px 0;
+font-size: 18px;
+font-weight: bold;
+border: none;
+border-radius: 10px;
+cursor: pointer;
+transition: all 0.3s ease;
+text-transform: uppercase;
+letter-spacing: 1px;
+}
+
+button:hover {
+transform: translateY(-2px);
+box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+.primary {
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+color: white;
+}
+
+.secondary {
+background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+color: white;
+}
+
+#room-code {
+font-size: 24px;
+font-family: monospace;
+background: rgba(0, 0, 0, 0.5);
+padding: 20px;
+border-radius: 10px;
+margin: 20px 0;
+word-break: break-all;
+text-shadow: none;
+}
+
+#players {
+display: flex;
+justify-content: space-around;
+margin-bottom: 20px;
+font-size: 18px;
+}
+
+#status {
+font-size: 28px;
+margin-bottom: 20px;
+text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+min-height: 40px;
+}
+
+#board {
+display: grid;
+grid-template-columns: repeat(7, 90px);
+grid-template-rows: repeat(6, 90px);
+gap: 8px;
+background: linear-gradient(145deg, #1a1a2e, #16213e);
+padding: 20px;
+border-radius: 20px;
+box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.7), 0 0 50px rgba(0, 0, 0, 0.5);
+justify-content: center;
+margin: 0 auto 20px;
+}
+
+.cell {
+width: 90px;
+height: 90px;
+background: radial-gradient(circle at center, #4a5568, #2d3748 70%, #1a202c);
+border: 4px solid #2d3748;
+border-radius: 50%;
+position: relative;
+cursor: pointer;
+transition: all 0.3s ease;
+box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cell:hover {
+background: radial-gradient(circle at center, #63b3ed, #4299e1 70%, #3182ce);
+border-color: #4299e1;
+transform: scale(1.05);
+box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(66, 153, 225, 0.4);
+}
+
+.disc {
+width: 78px;
+height: 78px;
+border-radius: 50%;
+position: absolute;
+top: 6px;
+left: 6px;
+animation: drop 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+}
+
+.red {
+background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.8) 0%, transparent 50%),
+radial-gradient(circle, #ff416c 0%, #ff4b2b 50%, #ff6b6b 100%);
+box-shadow: 0 0 30px rgba(255, 65, 108, 0.7), inset 0 2px 10px rgba(255, 255, 255, 0.4);
+}
+
+.red::after {
+content: '';
+position: absolute;
+top: 12px;
+left: 18px;
+width: 24px;
+height: 24px;
+background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, transparent 70%);
+border-radius: 50%;
+filter: blur(2px);
+}
+
+.yellow {
+background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.8) 0%, transparent 50%),
+radial-gradient(circle, #ffe259 0%, #ffa751 50%, #ff9f43 100%);
+box-shadow: 0 0 30px rgba(255, 193, 7, 0.7), inset 0 2px 10px rgba(255, 255, 255, 0.4);
+}
+
+.yellow::after {
+content: '';
+position: absolute;
+top: 12px;
+left: 18px;
+width: 24px;
+height: 24px;
+background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, transparent 70%);
+border-radius: 50%;
+filter: blur(2px);
+}
+
+@keyframes drop {
+0% {
+transform: translateY(-800px) scale(0.3) rotate(0deg);
+opacity: 0;
+}
+60% {
+transform: translateY(18px) scale(1.08) rotate(360deg);
+opacity: 1;
+}
+75% {
+transform: translateY(-10px) scale(0.97) rotate(540deg);
+}
+90% {
+transform: translateY(4px) scale(1.03) rotate(630deg);
+}
+100% {
+transform: translateY(0) scale(1) rotate(720deg);
+}
+}
+
+#connecting {
+font-size: 24px;
+color: #ffd700;
+text-shadow: 0 0 20px #ffd700;
+}
+
+@media (max-width: 600px) {
+#board {
+grid-template-columns: repeat(7, 70px);
+grid-template-rows: repeat(6, 70px);
+gap: 5px;
+padding: 10px;
+}
+.cell {
+width: 70px;
+height: 70px;
+}
+.disc {
+width: 58px;
+height: 58px;
+top: 6px;
+left: 6px;
+}
+}
+</style>
+</head>
+<body>
+<div id="start-screen" class="screen">
+<h1>🔴 Connect Four 🟡</h1>
+<input id="name-input" placeholder="Enter your name" maxlength="20">
+<button id="create-btn" class="primary">Create Game</button>
+<button id="join-btn" class="secondary">Join Game</button>
+</div>
+
+<div id="room-screen" class="screen" style="display: none;">
+<h2>Your Room Code</h2>
+<div id="room-code"></div>
+<button id="copy-btn" class="primary">Copy Code</button>
+<p style="margin-top: 20px; font-size: 20px;">Waiting for opponent to join...</p>
+<button id="back-btn" class="secondary" style="margin-top: 10px;">Back</button>
+</div>
+
+<div id="join-input-screen" class="screen" style="display: none;">
+<h2>Join Game</h2>
+<input id="room-input" placeholder="Enter room code" maxlength="50">
+<button id="join-confirm" class="primary">Join</button>
+<button id="back-join-btn" class="secondary">Back</button>
+</div>
+
+<div id="connecting-screen" class="screen" style="display: none;">
+<h2>Connecting...</h2>
+<div id="connecting">🔄</div>
+</div>
+
+<div id="game-screen" class="screen" style="display: none;">
+<div id="players"></div>
+<div id="status">Getting ready...</div>
+<div id="board"></div>
+<button id="reset" class="secondary">Reset Game</button>
+</div>
+
+<script>
+const ROWS = 6;
+const COLS = 7;
+let board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+let currentPlayer = 1;
+let gameOver = false;
+let peer = null;
+let opponentConn = null;
+let ownPlayer = null;
+let ownName = '';
+let opponentName = '';
+let connected = false;
+let ownColor = '';
+let oppColor = '';
+
+// Elements
+const startScreen = document.getElementById('start-screen');
+const roomScreen = document.getElementById('room-screen');
+const joinInputScreen = document.getElementById('join-input-screen');
+const connectingScreen = document.getElementById('connecting-screen');
+const gameScreen = document.getElementById('game-screen');
+const nameInput = document.getElementById('name-input');
+const roomInput = document.getElementById('room-input');
+const roomCodeEl = document.getElementById('room-code');
+const statusEl = document.getElementById('status');
+const boardEl = document.getElementById('board');
+const playersEl = document.getElementById('players');
+const resetBtn = document.getElementById('reset');
+
+// Event listeners
+document.getElementById('create-btn').addEventListener('click', createGame);
+document.getElementById('join-btn').addEventListener('click', () => showScreen(joinInputScreen));
+document.getElementById('join-confirm').addEventListener('click', joinGame);
+document.getElementById('back-join-btn').addEventListener('click', () => showScreen(startScreen));
+document.getElementById('back-btn').addEventListener('click', () => {
+if (peer) peer.destroy();
+showScreen(startScreen);
+});
+
+function showScreen(screen) {
+[startScreen, roomScreen, joinInputScreen, connectingScreen, gameScreen].forEach(s => s.style.display = 'none');
+screen.style.display = 'block';
+if (screen === startScreen || screen === joinInputScreen) nameInput.focus();
+}
+
+async function createGame() {
+ownName = nameInput.value.trim() || 'Player 1';
+ownPlayer = 1;
+ownColor = 'Red';
+oppColor = 'Yellow';
+peer = new Peer();
+peer.on('open', (id) => {
+roomCodeEl.textContent = id;
+});
+peer.on('connection', handleIncomingConnection);
+peer.on('error', (err) => console.error('Peer error:', err));
+showScreen(roomScreen);
+}
+
+function handleIncomingConnection(conn) {
+opponentConn = conn;
+conn.on('open', () => {
+opponentConn.send({ type: 'init', name: ownName });
+connected = true;
+updatePlayers();
+updateStatus();
+showScreen(gameScreen);
+});
+conn.on('data', handleData);
+conn.on('close', handleDisconnect);
+conn.on('error', handleDisconnect);
+}
+
+function joinGame() {
+const roomId = roomInput.value.trim();
+if (!roomId) return alert('Enter room code');
+ownName = nameInput.value.trim() || 'Player 2';
+ownPlayer = 2;
+ownColor = 'Yellow';
+oppColor = 'Red';
+peer = new Peer();
+opponentConn = peer.connect(roomId);
+if (!opponentConn) return alert('Connection failed');
+opponentConn.on('open', () => {
+opponentConn.send({ type: 'join', name: ownName });
+showScreen(connectingScreen);
+});
+opponentConn.on('data', handleData);
+opponentConn.on('close', handleDisconnect);
+opponentConn.on('error', (err) => {
+alert('Connection failed: ' + err.type);
+showScreen(startScreen);
+});
+peer.on('error', (err) => console.error('Peer error:', err));
+}
+
+function handleData(data) {
+if (data.type === 'reset') {
+resetGame();
+return;
+}
+if (data.type === 'init') {
+opponentName = data.name;
+updatePlayers();
+connected = true;
+updateStatus();
+showScreen(gameScreen);
+return;
+}
+if (data.type === 'join') {
+opponentName = data.name;
+updatePlayers();
+return;
+}
+// Move
+handleRemoteMove(data.col);
+}
+
+function handleRemoteMove(col) {
+const row = getNextOpenRow(col);
+if (row === -1) return;
+const oppPlayer = 3 - ownPlayer;
+board[row][col] = oppPlayer;
+const cellIndex = row * COLS + col;
+const cell = boardEl.children[cellIndex];
+const disc = document.createElement('div');
+disc.classList.add('disc', oppPlayer === 1 ? 'red' : 'yellow');
+cell.appendChild(disc);
+if (checkWin(row, col, oppPlayer)) {
+statusEl.textContent = `${opponentName || 'Opponent'} Wins! 🎉`;
+gameOver = true;
+return;
+}
+if (isDraw()) {
+statusEl.textContent = "It's a Draw! 🤝";
+gameOver = true;
+return;
+}
+currentPlayer = ownPlayer;
+updateStatus();
+}
+
+function initBoard() {
+boardEl.innerHTML = '';
+for (let row = 0; row < ROWS; row++) {
+for (let col = 0; col < COLS; col++) {
+const cell = document.createElement('div');
+cell.classList.add('cell');
+cell.dataset.col = col;
+cell.addEventListener('click', handleClick);
+boardEl.appendChild(cell);
+}
+}
+}
+
+function handleClick(e) {
+if (gameOver || !connected || currentPlayer !== ownPlayer) return;
+const col = parseInt(e.target.dataset.col);
+const row = getNextOpenRow(col);
+if (row === -1) return;
+board[row][col] = ownPlayer;
+const cellIndex = row * COLS + col;
+const cell = boardEl.children[cellIndex];
+const disc = document.createElement('div');
+disc.classList.add('disc', ownPlayer === 1 ? 'red' : 'yellow');
+cell.appendChild(disc);
+if (checkWin(row, col, ownPlayer)) {
+statusEl.textContent = `${ownName} Wins! 🎉`;
+gameOver = true;
+return;
+}
+if (isDraw()) {
+statusEl.textContent = "It's a Draw! 🤝";
+gameOver = true;
+return;
+}
+currentPlayer = 3 - ownPlayer;
+updateStatus();
+opponentConn.send({ col: col });
+}
+
+function getNextOpenRow(col) {
+for (let row = ROWS - 1; row >= 0; row--) {
+if (!board[row][col]) return row;
+}
+return -1;
+}
+
+function checkWin(row, col, player) {
+const directions = [
+[0, 1], [1, 0], [1, 1], [1, -1]
+];
+for (let [dr, dc] of directions) {
+let count = 1;
+count += countInDirection(row, col, dr, dc, player);
+count += countInDirection(row, col, -dr, -dc, player);
+if (count >= 4) return true;
+}
+return false;
+}
+
+function countInDirection(row, col, dr, dc, player) {
+let count = 0;
+let r = row + dr;
+let c = col + dc;
+while (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
+count++;
+r += dr;
+c += dc;
+}
+return count;
+}
+
+function isDraw() {
+return board.every(row => row.every(cell => cell !== null));
+}
+
+function updateStatus() {
+if (gameOver) return;
+if (currentPlayer === ownPlayer) {
+statusEl.textContent = `Your Turn (${ownColor}) ⏰`;
+} else {
+statusEl.textContent = `${opponentName || 'Opponent'}'s Turn (${oppColor}) ⏰`;
+}
+}
+
+function updatePlayers() {
+playersEl.innerHTML = `
+<span>🔴 Player 1 (Red): ${ownPlayer === 1 ? ownName : (opponentName || '--')}</span>
+<span>🟡 Player 2 (Yellow): ${ownPlayer === 1 ? (opponentName || '--') : ownName}</span>
+`;
+}
+
+function resetGame() {
+board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+currentPlayer = 1;
+gameOver = false;
+initBoard();
+updateStatus();
+}
+
+function handleDisconnect() {
+connected = false;
+alert('Opponent disconnected!');
+if (peer) peer.destroy();
+resetGame();
+showScreen(startScreen);
+}
+
+resetBtn.addEventListener('click', () => {
+if (connected && opponentConn) {
+opponentConn.send({ type: 'reset' });
+}
+resetGame();
+});
+
+// Copy room code
+document.getElementById('copy-btn').addEventListener('click', async () => {
+try {
+await navigator.clipboard.writeText(roomCodeEl.textContent);
+alert('Room code copied! Share it with your friend.');
+} catch {
+prompt('Copy this code:', roomCodeEl.textContent);
+}
+});
+
+// Init
+nameInput.focus();
+updatePlayers();
+initBoard(); // Pre-init for game screen
+</script>
+</body>
+</html>
