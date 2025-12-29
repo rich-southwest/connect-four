@@ -3,553 +3,390 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Connect Four - Online Multiplayer</title>
+<title>Connect Four - AI & Online Multiplayer</title>
 <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
-* {
-box-sizing: border-box;
-}
-
+* { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-display: flex;
-justify-content: center;
-align-items: center;
 min-height: 100vh;
-margin: 0;
 background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
 background-size: 400% 400%;
 animation: gradient 15s ease infinite;
-font-family: 'Arial Black', sans-serif;
+font-family: 'Arial Black', Arial, sans-serif;
 color: white;
-overflow: hidden;
+display: flex;
+justify-content: center;
+align-items: center;
 }
+@keyframes gradient { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
 
-@keyframes gradient {
-0% { background-position: 0% 50%; }
-50% { background-position: 100% 50%; }
-100% { background-position: 0% 50%; }
-}
-
-.screen {
-background: rgba(0, 0, 0, 0.7);
-backdrop-filter: blur(10px);
-padding: 40px;
-border-radius: 20px;
-box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+.container {
+background: rgba(0,0,0,0.6);
+backdrop-filter: blur(12px);
+padding: 30px;
+border-radius: 25px;
+box-shadow: 0 20px 50px rgba(0,0,0,0.6);
 text-align: center;
-max-width: 400px;
-width: 90vw;
+max-width: 500px;
+width: 95%;
 }
 
-h1, h2 {
-text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
-margin-bottom: 20px;
-}
-
-input {
-width: 100%;
-padding: 15px;
-margin: 10px 0;
-font-size: 18px;
-border: none;
-border-radius: 10px;
-background: rgba(255, 255, 255, 0.2);
-color: white;
-text-align: center;
-}
-
-input::placeholder {
-color: rgba(255, 255, 255, 0.7);
-}
+h1 { font-size: 36px; margin-bottom: 30px; text-shadow: 0 0 20px rgba(255,255,255,0.8); }
 
 button {
 width: 100%;
-padding: 15px;
-margin: 10px 0;
-font-size: 18px;
+padding: 18px;
+margin: 12px 0;
+font-size: 20px;
 font-weight: bold;
 border: none;
-border-radius: 10px;
+border-radius: 12px;
 cursor: pointer;
-transition: all 0.3s ease;
+transition: all 0.3s;
 text-transform: uppercase;
-letter-spacing: 1px;
 }
+button:hover { transform: translateY(-4px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); }
 
-button:hover {
-transform: translateY(-2px);
-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-}
+.primary { background: linear-gradient(135deg, #667eea, #764ba2); }
+.secondary { background: linear-gradient(135deg, #f093fb, #f5576c); }
+.ai-btn { background: linear-gradient(135deg, #11998e, #38ef7d); }
 
-.primary {
-background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-color: white;
-}
+#qr-code { margin: 20px 0; }
+#room-link { font-size: 18px; word-break: break-all; margin: 15px 0; background: rgba(0,0,0,0.4); padding: 15px; border-radius: 10px; }
 
-.secondary {
-background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-color: white;
-}
-
-#room-code {
-font-size: 24px;
-font-family: monospace;
-background: rgba(0, 0, 0, 0.5);
-padding: 20px;
-border-radius: 10px;
-margin: 20px 0;
-word-break: break-all;
-text-shadow: none;
-}
-
-#players {
-display: flex;
-justify-content: space-around;
-margin-bottom: 20px;
-font-size: 18px;
-}
-
-#status {
-font-size: 28px;
-margin-bottom: 20px;
-text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
-min-height: 40px;
-}
+#status { font-size: 28px; margin: 20px 0; min-height: 50px; }
 
 #board {
 display: grid;
 grid-template-columns: repeat(7, 90px);
 grid-template-rows: repeat(6, 90px);
-gap: 8px;
-background: linear-gradient(145deg, #1a1a2e, #16213e);
+gap: 10px;
+background: linear-gradient(145deg, #0f0c29, #302b63);
 padding: 20px;
 border-radius: 20px;
-box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.7), 0 0 50px rgba(0, 0, 0, 0.5);
-justify-content: center;
-margin: 0 auto 20px;
+box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+margin: 20px auto;
 }
 
 .cell {
-width: 90px;
-height: 90px;
-background: radial-gradient(circle at center, #4a5568, #2d3748 70%, #1a202c);
-border: 4px solid #2d3748;
+background: radial-gradient(circle at center, #1e3a8a, #1e40af 70%);
 border-radius: 50%;
-position: relative;
 cursor: pointer;
-transition: all 0.3s ease;
-box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+transition: all 0.3s;
+box-shadow: inset 0 5px 15px rgba(0,0,0,0.6);
 }
-
-.cell:hover {
-background: radial-gradient(circle at center, #63b3ed, #4299e1 70%, #3182ce);
-border-color: #4299e1;
-transform: scale(1.05);
-box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(66, 153, 225, 0.4);
-}
+.cell:hover { transform: scale(1.08); background: radial-gradient(circle at center, #3b82f6, #60a5fa); }
 
 .disc {
-width: 78px;
-height: 78px;
+width: 80px;
+height: 80px;
 border-radius: 50%;
-position: absolute;
-top: 6px;
-left: 6px;
-animation: drop 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+margin: 5px auto;
+animation: drop 0.9s cubic-bezier(0.2, 0.8, 0.4, 1);
+box-shadow: 0 10px 20px rgba(0,0,0,0.5), inset 0 3px 8px rgba(255,255,255,0.4);
 }
 
-.red {
-background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.8) 0%, transparent 50%),
-radial-gradient(circle, #ff416c 0%, #ff4b2b 50%, #ff6b6b 100%);
-box-shadow: 0 0 30px rgba(255, 65, 108, 0.7), inset 0 2px 10px rgba(255, 255, 255, 0.4);
-}
-
-.red::after {
-content: '';
-position: absolute;
-top: 12px;
-left: 18px;
-width: 24px;
-height: 24px;
-background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, transparent 70%);
-border-radius: 50%;
-filter: blur(2px);
-}
-
-.yellow {
-background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.8) 0%, transparent 50%),
-radial-gradient(circle, #ffe259 0%, #ffa751 50%, #ff9f43 100%);
-box-shadow: 0 0 30px rgba(255, 193, 7, 0.7), inset 0 2px 10px rgba(255, 255, 255, 0.4);
-}
-
-.yellow::after {
-content: '';
-position: absolute;
-top: 12px;
-left: 18px;
-width: 24px;
-height: 24px;
-background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, transparent 70%);
-border-radius: 50%;
-filter: blur(2px);
-}
+.red { background: radial-gradient(circle at 30% 30%, #ff9e9e, #ff416c, #c41e3a); }
+.yellow { background: radial-gradient(circle at 30% 30%, #ffff99, #ffe259, #ffa726); }
 
 @keyframes drop {
-0% {
-transform: translateY(-800px) scale(0.3) rotate(0deg);
-opacity: 0;
-}
-60% {
-transform: translateY(18px) scale(1.08) rotate(360deg);
-opacity: 1;
-}
-75% {
-transform: translateY(-10px) scale(0.97) rotate(540deg);
-}
-90% {
-transform: translateY(4px) scale(1.03) rotate(630deg);
-}
-100% {
-transform: translateY(0) scale(1) rotate(720deg);
-}
+0% { transform: translateY(-1000px) rotate(0deg); opacity: 0; }
+70% { transform: translateY(10px) rotate(360deg); opacity: 1; }
+85% { transform: translateY(-5px); }
+100% { transform: translateY(0) rotate(720deg); }
 }
 
-#connecting {
-font-size: 24px;
-color: #ffd700;
-text-shadow: 0 0 20px #ffd700;
-}
+#back-btn { margin-top: 20px; font-size: 16px; padding: 12px; }
 
 @media (max-width: 600px) {
-#board {
-grid-template-columns: repeat(7, 70px);
-grid-template-rows: repeat(6, 70px);
-gap: 5px;
-padding: 10px;
-}
-.cell {
-width: 70px;
-height: 70px;
-}
-.disc {
-width: 58px;
-height: 58px;
-top: 6px;
-left: 6px;
-}
+#board { grid-template-columns: repeat(7, 65px); grid-template-rows: repeat(6, 65px); }
+.disc { width: 55px; height: 55px; }
 }
 </style>
 </head>
 <body>
-<div id="start-screen" class="screen">
+<div class="container" id="menu-screen">
 <h1>🔴 Connect Four 🟡</h1>
-<input id="name-input" placeholder="Enter your name" maxlength="20">
-<button id="create-btn" class="primary">Create Game</button>
-<button id="join-btn" class="secondary">Join Game</button>
+<input type="text" id="player-name" placeholder="Your Name" maxlength="20">
+<button id="ai-btn" class="ai-btn">Play vs AI</button>
+<button id="create-btn" class="primary">Create Online Game</button>
+<button id="join-btn" class="secondary">Join Online Game</button>
 </div>
 
-<div id="room-screen" class="screen" style="display: none;">
-<h2>Your Room Code</h2>
-<div id="room-code"></div>
-<button id="copy-btn" class="primary">Copy Code</button>
-<p style="margin-top: 20px; font-size: 20px;">Waiting for opponent to join...</p>
-<button id="back-btn" class="secondary" style="margin-top: 10px;">Back</button>
-</div>
-
-<div id="join-input-screen" class="screen" style="display: none;">
-<h2>Join Game</h2>
-<input id="room-input" placeholder="Enter room code" maxlength="50">
+<div class="container" id="join-screen" style="display:none;">
+<h1>Join Game</h1>
+<input type="text" id="room-id-input" placeholder="Enter Room Code">
 <button id="join-confirm" class="primary">Join</button>
-<button id="back-join-btn" class="secondary">Back</button>
+<button id="back-menu" class="secondary">Back</button>
 </div>
 
-<div id="connecting-screen" class="screen" style="display: none;">
-<h2>Connecting...</h2>
-<div id="connecting">🔄</div>
+<div class="container" id="room-screen" style="display:none;">
+<h1>Room Created!</h1>
+<p>Share this link or QR code with your friend:</p>
+<div id="room-link"></div>
+<div id="qr-code"></div>
+<p>Waiting for opponent...</p>
+<button id="back-menu2" class="secondary">Cancel</button>
 </div>
 
-<div id="game-screen" class="screen" style="display: none;">
-<div id="players"></div>
-<div id="status">Getting ready...</div>
+<div class="container" id="game-screen" style="display:none;">
+<div id="player-info"></div>
+<div id="status">Your Turn!</div>
 <div id="board"></div>
-<button id="reset" class="secondary">Reset Game</button>
+<button id="reset-game" class="secondary">New Game</button>
+<button id="back-menu3" class="secondary">Menu</button>
 </div>
 
 <script>
-const ROWS = 6;
-const COLS = 7;
-let board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
-let currentPlayer = 1;
-let gameOver = false;
+const ROWS = 6, COLS = 7;
+let board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+let currentPlayer = 1; // 1 red, 2 yellow
+let isAI = false;
+let isOnline = false;
 let peer = null;
-let opponentConn = null;
-let ownPlayer = null;
-let ownName = '';
-let opponentName = '';
-let connected = false;
-let ownColor = '';
-let oppColor = '';
+let conn = null;
+let myName = '';
+let oppName = '';
+let myTurn = true;
 
-// Elements
-const startScreen = document.getElementById('start-screen');
+const menuScreen = document.getElementById('menu-screen');
+const joinScreen = document.getElementById('join-screen');
 const roomScreen = document.getElementById('room-screen');
-const joinInputScreen = document.getElementById('join-input-screen');
-const connectingScreen = document.getElementById('connecting-screen');
 const gameScreen = document.getElementById('game-screen');
-const nameInput = document.getElementById('name-input');
-const roomInput = document.getElementById('room-input');
-const roomCodeEl = document.getElementById('room-code');
-const statusEl = document.getElementById('status');
 const boardEl = document.getElementById('board');
-const playersEl = document.getElementById('players');
-const resetBtn = document.getElementById('reset');
+const statusEl = document.getElementById('status');
 
-// Event listeners
-document.getElementById('create-btn').addEventListener('click', createGame);
-document.getElementById('join-btn').addEventListener('click', () => showScreen(joinInputScreen));
-document.getElementById('join-confirm').addEventListener('click', joinGame);
-document.getElementById('back-join-btn').addEventListener('click', () => showScreen(startScreen));
-document.getElementById('back-btn').addEventListener('click', () => {
-if (peer) peer.destroy();
-showScreen(startScreen);
-});
+document.getElementById('ai-btn').onclick = startAI;
+document.getElementById('create-btn').onclick = createRoom;
+document.getElementById('join-btn').onclick = () => showScreen(joinScreen);
+document.getElementById('join-confirm').onclick = joinRoom;
+['back-menu', 'back-menu2', 'back-menu3'].forEach(id => document.getElementById(id).onclick = backToMenu);
+document.getElementById('reset-game').onclick = resetGame;
 
 function showScreen(screen) {
-[startScreen, roomScreen, joinInputScreen, connectingScreen, gameScreen].forEach(s => s.style.display = 'none');
+[menuScreen, joinScreen, roomScreen, gameScreen].forEach(s => s.style.display = 'none');
 screen.style.display = 'block';
-if (screen === startScreen || screen === joinInputScreen) nameInput.focus();
 }
 
-async function createGame() {
-ownName = nameInput.value.trim() || 'Player 1';
-ownPlayer = 1;
-ownColor = 'Red';
-oppColor = 'Yellow';
-peer = new Peer();
-peer.on('open', (id) => {
-roomCodeEl.textContent = id;
+function backToMenu() {
+if (peer) peer.destroy();
+showScreen(menuScreen);
+resetGame();
+}
+
+function startAI() {
+myName = document.getElementById('player-name').value.trim() || 'You';
+isAI = true; isOnline = false;
+currentPlayer = 1; myTurn = true;
+showScreen(gameScreen);
+initBoard();
+updateInfo();
+}
+
+function createRoom() {
+myName = document.getElementById('player-name').value.trim() || 'Player 1';
+peer = new Peer({ config: {'iceServers': [{urls: 'stun:stun.l.google.com:19302'}, {urls: 'stun:stun1.l.google.com:19302'}] } });
+peer.on('open', id => {
+const url = `${location.href}?room=${id}`;
+document.getElementById('room-link').textContent = url;
+QRCode.toCanvas(document.getElementById('qr-code'), url, {width: 200});
 showScreen(roomScreen);
 });
-peer.on('connection', handleIncomingConnection);
-peer.on('error', (err) => {
-console.error('Peer error:', err);
-alert('Connection error: ' + err.type);
-});
-}
-
-function handleIncomingConnection(conn) {
-opponentConn = conn;
+peer.on('connection', c => {
+conn = c;
 conn.on('open', () => {
-opponentConn.send({ type: 'init', name: ownName });
-connected = true;
-updatePlayers();
-updateStatus();
+conn.send({type: 'name', name: myName});
+isOnline = true; myTurn = true; currentPlayer = 1;
 initBoard();
+updateInfo();
 showScreen(gameScreen);
 });
 conn.on('data', handleData);
-conn.on('close', handleDisconnect);
-conn.on('error', handleDisconnect);
+});
+peer.on('error', err => alert('Error: ' + err.type));
 }
 
-function joinGame() {
-const roomId = roomInput.value.trim();
+function joinRoom() {
+const roomId = document.getElementById('room-id-input').value.trim();
 if (!roomId) return alert('Enter room code');
-ownName = nameInput.value.trim() || 'Player 2';
-ownPlayer = 2;
-ownColor = 'Yellow';
-oppColor = 'Red';
-peer = new Peer();
-opponentConn = peer.connect(roomId, { reliable: true });
-opponentConn.on('open', () => {
-opponentConn.send({ type: 'join', name: ownName });
-showScreen(connectingScreen);
+myName = document.getElementById('player-name').value.trim() || 'Player 2';
+peer = new Peer({ config: {'iceServers': [{urls: 'stun:stun.l.google.com:19302'}, {urls: 'stun:stun1.l.google.com:19302'}] } });
+conn = peer.connect(roomId);
+conn.on('open', () => {
+conn.send({type: 'name', name: myName});
+isOnline = true; myTurn = false; currentPlayer = 1;
+showScreen(gameScreen);
+initBoard();
+updateInfo();
 });
-opponentConn.on('data', handleData);
-opponentConn.on('close', handleDisconnect);
-opponentConn.on('error', (err) => {
-console.error(err);
-alert('Connection failed: ' + err.type);
-showScreen(startScreen);
-});
-peer.on('error', (err) => console.error('Peer error:', err));
+conn.on('data', handleData);
+peer.on('error', err => alert('Connection failed: ' + err.type));
 }
 
 function handleData(data) {
-if (data.type === 'reset') {
-resetGame();
-return;
+if (data.type === 'name') {
+oppName = data.name;
+updateInfo();
+} else if (data.col !== undefined) {
+dropInColumn(data.col, data.colPlayer || (myTurn ? 2 : 1));
 }
-if (data.type === 'init') {
-opponentName = data.name;
-updatePlayers();
-connected = true;
-updateStatus();
-initBoard();
-showScreen(gameScreen);
-return;
-}
-if (data.type === 'join') {
-opponentName = data.name;
-updatePlayers();
-return;
-}
-// Move
-handleRemoteMove(data.col);
-}
-
-function handleRemoteMove(col) {
-const row = getNextOpenRow(col);
-if (row === -1) return;
-const oppPlayer = 3 - ownPlayer;
-board[row][col] = oppPlayer;
-dropDisc(row, col, oppPlayer);
-if (checkWin(row, col, oppPlayer)) {
-statusEl.textContent = `${opponentName || 'Opponent'} Wins! 🎉`;
-gameOver = true;
-return;
-}
-if (isDraw()) {
-statusEl.textContent = "It's a Draw! 🤝";
-gameOver = true;
-return;
-}
-currentPlayer = ownPlayer;
-updateStatus();
 }
 
 function initBoard() {
 boardEl.innerHTML = '';
-for (let row = 0; row < ROWS; row++) {
-for (let col = 0; col < COLS; col++) {
+board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
 const cell = document.createElement('div');
 cell.classList.add('cell');
-cell.dataset.col = col;
-if (board[row][col]) {
-dropDisc(row, col, board[row][col], false); // no animation for sync
-}
-cell.addEventListener('click', handleClick);
+cell.dataset.col = c;
+cell.onclick = () => playerMove(c);
 boardEl.appendChild(cell);
 }
 }
+
+function playerMove(col) {
+if (!myTurn || gameOver()) return;
+const row = dropInColumn(col, currentPlayer);
+if (row === -1) return;
+if (isOnline) conn.send({col});
+checkAfterMove();
 }
 
-function dropDisc(row, col, player, animate = true) {
-const cellIndex = row * COLS + col;
-const cell = boardEl.children[cellIndex];
+function dropInColumn(col, player) {
+for (let r = ROWS-1; r >= 0; r--) {
+if (board[r][col] === 0) {
+board[r][col] = player;
+const cell = boardEl.children[r * COLS + col];
 const disc = document.createElement('div');
 disc.classList.add('disc', player === 1 ? 'red' : 'yellow');
-if (!animate) disc.style.animation = 'none';
 cell.appendChild(disc);
+return r;
 }
-
-function handleClick(e) {
-if (gameOver || !connected || currentPlayer !== ownPlayer) return;
-const col = parseInt(e.target.dataset.col);
-const row = getNextOpenRow(col);
-if (row === -1) return;
-board[row][col] = ownPlayer;
-dropDisc(row, col, ownPlayer);
-if (checkWin(row, col, ownPlayer)) {
-statusEl.textContent = `${ownName} Wins! 🎉`;
-gameOver = true;
-return;
-}
-if (isDraw()) {
-statusEl.textContent = "It's a Draw! 🤝";
-gameOver = true;
-return;
-}
-currentPlayer = 3 - ownPlayer;
-updateStatus();
-opponentConn.send({ col: col });
-}
-
-function getNextOpenRow(col) {
-for (let row = ROWS - 1; row >= 0; row--) {
-if (!board[row][col]) return row;
 }
 return -1;
 }
 
-function checkWin(row, col, player) {
-const directions = [[0,1],[1,0],[1,1],[1,-1]];
-for (let [dr, dc] of directions) {
-let count = 1;
-count += countInDirection(row, col, dr, dc, player);
-count += countInDirection(row, col, -dr, -dc, player);
-if (count >= 4) return true;
+function checkAfterMove() {
+if (checkWin(currentPlayer)) {
+statusEl.textContent = `${currentPlayer === 1 ? 'Red' : 'Yellow'} Wins! 🎉`;
+myTurn = false;
+return;
 }
-return false;
+if (isDraw()) {
+statusEl.textContent = 'Draw!';
+return;
 }
-
-function countInDirection(row, col, dr, dc, player) {
-let count = 0;
-let r = row + dr;
-let c = col + dc;
-while (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
-count++;
-r += dr;
-c += dc;
-}
-return count;
-}
-
-function isDraw() {
-return board.every(row => row.every(cell => cell !== null));
+currentPlayer = 3 - currentPlayer;
+myTurn = !myTurn;
+updateStatus();
+if (isAI && myTurn) setTimeout(aiMove, 800);
 }
 
 function updateStatus() {
-if (gameOver) return;
-if (currentPlayer === ownPlayer) {
-statusEl.textContent = `Your Turn (${ownColor}) ⏰`;
+if (isOnline) {
+statusEl.textContent = myTurn ? 'Your Turn!' : `${oppName || 'Opponent'}'s Turn`;
 } else {
-statusEl.textContent = `${opponentName || 'Opponent'}'s Turn (${oppColor}) ⏰`;
+statusEl.textContent = myTurn ? 'Your Turn!' : 'AI Thinking...';
 }
 }
 
-function updatePlayers() {
-playersEl.innerHTML = `
-<span>🔴 Player 1 (Red): ${ownPlayer === 1 ? ownName : (opponentName || '--')}</span>
-<span>🟡 Player 2 (Yellow): ${ownPlayer === 1 ? (opponentName || '--') : ownName}</span>
-`;
+function updateInfo() {
+document.getElementById('player-info').innerHTML = isOnline ?
+`<strong>You (${myName}): ${currentPlayer === 1 ? 'Red' : 'Yellow'}</strong><br>Opponent (${oppName || 'Waiting'}): ${currentPlayer === 1 ? 'Yellow' : 'Red'}` :
+`<strong>You: Red</strong> vs <strong>AI: Yellow</strong>`;
 }
+
+// Simple but strong AI with minimax depth 6
+function aiMove() {
+const best = minimax(board, 6, -Infinity, Infinity, true);
+dropInColumn(best.col, 2);
+checkAfterMove();
+}
+
+function minimax(node, depth, alpha, beta, maximizing) {
+if (depth === 0 || checkWinAny(node)) return {score: evaluate(node)};
+const validCols = getValidCols(node);
+if (maximizing) {
+let maxEval = {score: -Infinity};
+for (let col of validCols) {
+const child = copyBoard(node);
+dropInColumnBoard(child, col, 2);
+const eval = minimax(child, depth-1, alpha, beta, false);
+if (eval.score > maxEval.score) maxEval = {score: eval.score, col};
+alpha = Math.max(alpha, eval.score);
+if (beta <= alpha) break;
+}
+return maxEval;
+} else {
+let minEval = {score: Infinity};
+for (let col of validCols) {
+const child = copyBoard(node);
+dropInColumnBoard(child, col, 1);
+const eval = minimax(child, depth-1, alpha, beta, true);
+if (eval.score < minEval.score) minEval = {score: eval.score, col};
+beta = Math.min(beta, eval.score);
+if (beta <= alpha) break;
+}
+return minEval;
+}
+}
+
+function evaluate(b) {
+let score = 0;
+// Center preference
+for (let r = 0; r < ROWS; r++) if (b[r][3] === 2) score += 3;
+// Win check
+if (checkWinAny(b) === 2) return 100000;
+if (checkWinAny(b) === 1) return -100000;
+return score;
+}
+
+function checkWinAny(b) {
+// Horizontal, vertical, diagonals
+for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+const p = b[r][c];
+if (p === 0) continue;
+if (c <= COLS-4 && p === b[r][c+1] && p === b[r][c+2] && p === b[r][c+3]) return p;
+if (r <= ROWS-4 && p === b[r+1][c] && p === b[r+2][c] && p === b[r+3][c]) return p;
+if (r <= ROWS-4 && c <= COLS-4 && p === b[r+1][c+1] && p === b[r+2][c+2] && p === b[r+3][c+3]) return p;
+if (r <= ROWS-4 && c >= 3 && p === b[r+1][c-1] && p === b[r+2][c-2] && p === b[r+3][c-3]) return p;
+}
+return 0;
+}
+
+function getValidCols(b) {
+const cols = [];
+for (let c = 0; c < COLS; c++) if (b[0][c] === 0) cols.push(c);
+return cols;
+}
+
+function copyBoard(b) { return b.map(row => row.slice()); }
+
+function dropInColumnBoard(b, col, player) {
+for (let r = ROWS-1; r >= 0; r--) if (b[r][col] === 0) { b[r][col] = player; return; }
+}
+
+function checkWin(player) { return checkWinAny(board) === player; }
+function isDraw() { return board[0].every(c => c !== 0); }
+function gameOver() { return checkWinAny(board) || isDraw(); }
 
 function resetGame() {
-board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
-currentPlayer = 1;
-gameOver = false;
 initBoard();
+currentPlayer = 1;
+myTurn = isOnline ? true : true; // host starts
 updateStatus();
+updateInfo();
 }
 
-function handleDisconnect() {
-connected = false;
-alert('Opponent disconnected!');
-if (peer) peer.destroy();
-resetGame();
-showScreen(startScreen);
+// Extract room from URL for direct join
+const urlParams = new URLSearchParams(location.search);
+if (urlParams.has('room')) {
+document.getElementById('room-id-input').value = urlParams.get('room');
+joinRoom();
 }
 
-resetBtn.addEventListener('click', () => {
-if (connected && opponentConn) {
-opponentConn.send({ type: 'reset' });
-}
-resetGame();
-});
-
-document.getElementById('copy-btn').addEventListener('click', async () => {
-try {
-await navigator.clipboard.writeText(roomCodeEl.textContent);
-alert('Room code copied!');
-} catch {
-prompt('Copy this code:', roomCodeEl.textContent);
-}
-});
-
-nameInput.focus();
-updatePlayers();
+document.getElementById('player-name').focus();
 </script>
 </body>
 </html>
